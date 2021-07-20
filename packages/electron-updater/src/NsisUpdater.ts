@@ -61,10 +61,10 @@ export class NsisUpdater extends BaseUpdater {
 
         if (isWebInstaller) {
           this._logger.info("About to try differential downloading web package")
-          if (await this.differentialDownloadWebPackage(downloadUpdateOptions, packageInfo, packageFile!, provider)) {
+          if (await this.differentialDownloadWebPackage(downloadUpdateOptions, packageInfo!, packageFile!, provider)) {
             try {
               this._logger.info("About to try http executor downloading web package")
-              await this.httpExecutor.download(new URL(packageInfo.path), packageFile!, {
+              await this.httpExecutor.download(new URL(packageInfo!.path), packageFile!, {
                 headers: downloadUpdateOptions.requestHeaders,
                 cancellationToken: downloadUpdateOptions.cancellationToken,
                 sha512: packageInfo!.sha512,
