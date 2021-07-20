@@ -404,6 +404,8 @@ export abstract class AppUpdater extends EventEmitter {
    * @returns {Promise<string>} Path to downloaded file.
    */
   downloadUpdate(cancellationToken: CancellationToken = new CancellationToken()): Promise<any> {
+    this._logger.info("Starting to download update")
+
     const updateInfoAndProvider = this.updateInfoAndProvider
     if (updateInfoAndProvider == null) {
       const error = new Error("Please check update first")
@@ -418,6 +420,7 @@ export abstract class AppUpdater extends EventEmitter {
     )
     const errorHandler = (e: Error): Error => {
       // https://github.com/electron-userland/electron-builder/issues/1150#issuecomment-436891159
+      this._logger.error("Got an error in AppUpdater.downloadUpdate: " + (e.stack || e.message))
       if (!(e instanceof CancellationError)) {
         try {
           this.dispatchError(e)
@@ -553,6 +556,8 @@ export abstract class AppUpdater extends EventEmitter {
   }
 
   protected async executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>> {
+    this._logger.info("Starting AppUpdater.executeDownload")
+
     const fileInfo = taskOptions.fileInfo
     const downloadOptions: DownloadOptions = {
       headers: taskOptions.downloadUpdateOptions.requestHeaders,
@@ -562,6 +567,7 @@ export abstract class AppUpdater extends EventEmitter {
     }
 
     if (this.listenerCount(DOWNLOAD_PROGRESS) > 0) {
+      this._logger.info("Adding onProgress Listener when executing Download")
       downloadOptions.onProgress = it => this.emit(DOWNLOAD_PROGRESS, it)
     }
 

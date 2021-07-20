@@ -22,6 +22,8 @@ export class NsisUpdater extends BaseUpdater {
 
   /*** @private */
   protected doDownloadUpdate(downloadUpdateOptions: DownloadUpdateOptions): Promise<Array<string>> {
+    this._logger.info("Starting NsisUpdater.doDownloadUpdate")
+
     const provider = downloadUpdateOptions.updateInfoAndProvider.provider
     const fileInfo = findFile(provider.resolveFiles(downloadUpdateOptions.updateInfoAndProvider.info), "exe")!
     return this.executeDownload({
@@ -29,9 +31,21 @@ export class NsisUpdater extends BaseUpdater {
       downloadUpdateOptions,
       fileInfo,
       task: async (destinationFile, downloadOptions, packageFile, removeTempDirIfAny) => {
+        this._logger.info("Starting NsisUpdater download task")
+
         const packageInfo = fileInfo.packageInfo
         const isWebInstaller = packageInfo != null && packageFile != null
+        this._logger.info("Is this a web installer?: " + (isWebInstaller ? "Y" : "N"))
+        this._logger.info("About to try differential downloading installer")
         if (isWebInstaller || (await this.differentialDownloadInstaller(fileInfo, downloadUpdateOptions, destinationFile, provider))) {
+          this._logger.info(
+            "About to try HTTP Executor downloading installer with url=" +
+              fileInfo.url.toString() +
+              "destinationFile=" +
+              destinationFile.toString() +
+              "downloadOptions=" +
+              JSON.stringify(downloadOptions)
+          )
           await this.httpExecutor.download(fileInfo.url, destinationFile, downloadOptions)
         }
 
@@ -46,9 +60,11 @@ export class NsisUpdater extends BaseUpdater {
         }
 
         if (isWebInstaller) {
-          if (await this.differentialDownloadWebPackage(downloadUpdateOptions, packageInfo!, packageFile!, provider)) {
+          this._logger.info("About to try differential downloading web package")
+          if (await this.differentialDownloadWebPackage(downloadUpdateOptions, packageInfo, packageFile!, provider)) {
             try {
-              await this.httpExecutor.download(new URL(packageInfo!.path), packageFile!, {
+              this._logger.info("About to try http executor downloading web package")
+              await this.httpExecutor.download(new URL(packageInfo.path), packageFile!, {
                 headers: downloadUpdateOptions.requestHeaders,
                 cancellationToken: downloadUpdateOptions.cancellationToken,
                 sha512: packageInfo!.sha512,
@@ -60,6 +76,8 @@ export class NsisUpdater extends BaseUpdater {
                 // ignore
               }
 
+              const msg: string = e.stack.toString() || e.toString()
+              this._logger.error("NSIS Updater doDownloadUpdate tasks threw error: " + msg)
               throw e
             }
           }
@@ -138,10 +156,13 @@ export class NsisUpdater extends BaseUpdater {
       if (this._testOnlyOptions != null && !this._testOnlyOptions.isUseDifferentialDownload) {
         return true
       }
+
+      this._logger.info("Starting NsisUpdater.differentialDownloadInstaller")
       const blockmapFileUrls = blockmapFiles(fileInfo.url, this.app.version, downloadUpdateOptions.updateInfoAndProvider.info.version)
       this._logger.info(`Download block maps (old: "${blockmapFileUrls[0]}", new: ${blockmapFileUrls[1]})`)
 
       const downloadBlockMap = async (url: URL): Promise<BlockMap> => {
+        this._logger.info("Starting NsisUpdater.differentialDownloadInstaller.downloadBlockMap")
         const data = await this.httpExecutor.downloadToBuffer(url, {
           headers: downloadUpdateOptions.requestHeaders,
           cancellationToken: downloadUpdateOptions.cancellationToken,
@@ -170,6 +191,7 @@ export class NsisUpdater extends BaseUpdater {
 
       if (this.listenerCount(DOWNLOAD_PROGRESS) > 0) {
         downloadOptions.onProgress = it => this.emit(DOWNLOAD_PROGRESS, it)
+        this._logger.info("Setting onProgress Handler in NsisUpdater.differentialDownloadUpdater: " + downloadOptions.onProgress.toString())
       }
 
       const blockMapDataList = await Promise.all(blockmapFileUrls.map(u => downloadBlockMap(u)))
@@ -195,6 +217,8 @@ export class NsisUpdater extends BaseUpdater {
       return true
     }
 
+    this._logger.info("Starting NsisUpdater.differentialDownloadWebPackage")
+
     try {
       const downloadOptions: DifferentialDownloaderOptions = {
         newUrl: new URL(packageInfo.path),
@@ -207,6 +231,7 @@ export class NsisUpdater extends BaseUpdater {
       }
 
       if (this.listenerCount(DOWNLOAD_PROGRESS) > 0) {
+        this._logger.info("About to try differential installing in NsisUpdater.differentialDownloadWebPackage")
         downloadOptions.onProgress = it => this.emit(DOWNLOAD_PROGRESS, it)
       }
 

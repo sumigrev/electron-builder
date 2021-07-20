@@ -282,6 +282,7 @@ Please double check that your authentication token is correct. Due to security r
       }
 
       if (options.responseHandler == null) {
+        debug("Configuring Pipes with options=" + JSON.stringify(options) + ";response=" + JSON.stringify(response))
         configurePipes(options, response)
       } else {
         options.responseHandler(response, options.callback)
